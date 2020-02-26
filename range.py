@@ -3,8 +3,9 @@ import numpy as np
 import glob
 from tqdm import tqdm
 import imutils
+from ipsctarget import Targetipsc
 
-class Target():
+class Range():
 
     '''
     Init function
@@ -12,15 +13,11 @@ class Target():
     def __init__(self):
         #class inits
         print("Initializing target")
-        self.target_points = []
         self.re_scale_factor_x = 1.0
         self.re_scale_factor_y = 1.0
-        self.target_rect = []
         self.red_threshold = 230
-        self.target_mask = []
-        self.target_image = cv2.imread("ipsctarget.jpg")
-        self.target_trans_points = [[232,33],[369,33],[506,206],[506,381],[369,556],[232,556],[93,383],[93,207]]
-        self.transform_matrix = []
+        self.target_points = []
+        self.targets = []
         self.wait = False
 
     '''
@@ -91,26 +88,13 @@ class Target():
             #convert crop points
             self.target_points = np.asarray(np.divide(self.target_points,[self.re_scale_factor_x,self.re_scale_factor_y]),int)
 
+            target = Targetipsc(self.target_points, len(self.targets))
+
+            self.targets.append(target)
+
             #reset all cv2 windows
             cv2.destroyAllWindows()
 
-            #create rectangle based on chosen points
-            self.target_rect = cv2.boundingRect(self.target_points)
-
-    '''
-    Make target mask
-    Makes mask based on target boundries
-    '''
-    def makeMask(self, frame):
-
-        print("Making mask")
-
-        print(frame.shape[:2])
-        #mask_points = self.target_points-self.target_points.min(axis=0)
-        target_mask = np.zeros(frame.shape[:2], np.uint8)
-        cv2.drawContours(target_mask, [self.target_points], -1, (255,255,255), -1, cv2.LINE_AA)
-
-        self.target_mask = target_mask
 
     '''
     Detect shot function
@@ -137,46 +121,43 @@ class Target():
                 return None
 
     '''
-    Update target function
-    Outputs detected shot on the target image
+    Callback function for trackbar
     '''
-    def update_target(self, shot_coordinates):
-        print("Updating target")
-
-        dst = cv2.warpPerspective(shot_coordinates,self.transform_matrix,(300,300))
-
-        print("Result of target update is ")
-        print(dst)
-        
-    '''
-    Transform function
-    Gets transformation between user set target and target image
-    '''
-    def get_transform(self):
-
-        #convert points
-        pts1 = np.float32(self.target_points)
-        print(pts1)
-        pts2 = np.float32(self.target_trans_points)
-        print(pts2)
-
-        #geting transform
-        self.transform_matrix = cv2.getPerspectiveTransform(pts1,pts2)
+    def nothing(self, x):
+        pass
 
     '''
-    Inside target function
-    Function that checks if the shot is inside the target
+    Calibration function for red levels
     '''
-    def inside_target(self, shot_coordinates):
+    def calibrate_red(self, cap):
 
-        #checking distance
-        dist = cv2.pointPolygonTest(self.target_points,(shot_coordinates[0], shot_coordinates[1]),True)
+        cv2.namedWindow("Calibration")
+        cv2.createTrackbar('R','Calibration',self.red_threshold,255,self.nothing)
 
-        #if distance is 0 or more, shot is inside the target
-        if dist >= 0:
-            return True
-        else:
-            return False
+        calibrate = True
+
+        while calibrate:
+
+            ret, frame = cap.read()
+
+            #get red channel
+            red_frame = np.array(frame[:,:,2])
+
+            #threshold the frame
+            red_frame[red_frame < self.red_threshold] = 0
+
+            self.red_threshold = cv2.getTrackbarPos('R','Calibration')
+
+            cv2.imshow('Calibration', red_frame)
+
+            keypress = cv2.waitKey(1) & 0xFF
+
+            #Break is q pressed
+            if keypress == ord('q'):
+                #stop calibration
+                calibrate = False
+                #destroy calibration window
+                cv2.destroyWindow("Calibration")
 
     '''
     Main run function
@@ -187,25 +168,7 @@ class Target():
         #open video capture
         cap = cv2.VideoCapture(0)
 
-        if len(self.target_trans_points) == 0:
-
-            self.makeTarget(self.target_image)
-
-        #if no target made
-        if len(self.target_points) == 0:
-
-            #get frame
-            ret, ini_frame = cap.read()
-
-            #make target
-            self.makeTarget(ini_frame)
-
-            #generate transform
-            #self.get_transform()
-            
-            #make mask
-            self.makeMask(ini_frame)
-
+        #running flag
         running = True
 
         #main while loop
@@ -214,46 +177,74 @@ class Target():
             #read frame
             ret, frame = cap.read()
 
-            #get red channel
-            red_frame = np.array(frame[:,:,2])
-
-            #threshold the frame
-            red_frame[red_frame < self.red_threshold] = 0
-
-            #apply the mask
-            #red_frame[self.target_mask<255] = 0
-
-            #get shot status
-            shot_status = self.detectShot(red_frame)
-
-            
-            #if shot detected
-            if shot_status is not None:
-                
-                if self.wait == False:
-            
-                    if self.inside_target(shot_status):
-                        print("Hit!")
-                        #self.update_target(shot_status)
-                    else: 
-                        print("Mike!")
-
-                    self.wait = True
-            else:
-                self.wait = False
-
-
             #show frame
-            #cv2.imshow('frame', red_frame)
+            cv2.imshow('frame', frame)
 
+            #if no targets made
+            if len(self.targets) == 0:
+                print("Please, make mark targets")
+
+            #if targets exists
+            else:
+
+                #get red channel
+                red_frame = np.array(frame[:,:,2])
+
+                #threshold the frame
+                red_frame[red_frame < self.red_threshold] = 0
+
+                #apply the mask
+                #red_frame[self.target_mask<255] = 0
+
+                #get shot status
+                shot_status = self.detectShot(red_frame)
+
+                
+                #if shot detected
+                if shot_status is not None:
+                    
+                    print("Shots detected!")
+
+                    #check if it is the first detected frame
+                    if self.wait == False:
+                        
+                        #set hit status
+                        hit_status = False
+
+                        #for each target in list
+                        for t in self.targets:
+                            
+                            #check if shot is inside the target
+                            if t.inside_target(shot_status):
+                                print("Target [{}] HIT".format(t.get_id()))
+                                hit_status = True
+
+                        #check if hits were registered
+                        if hit_status == False:
+                            #if no hits was inside the target
+                            print("Mike!")
+
+                        #Check if this is correct
+                        self.wait = True
+                else:
+                    self.wait = False
+
+            keypress = cv2.waitKey(1) & 0xFF
             #Break is q pressed
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            if keypress == ord('q'):
                 break
+            #make target if t is pressed
+            elif keypress == ord('t'):
+                self.makeTarget(frame)
+
+            #calibrate red threshold
+            elif keypress == ord('c'):
+                self.calibrate_red(cap)
 
         # When everything done, release the capture
         cap.release()
         cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    t1 = Target()
+    t1 = Range()
     t1.run()
