@@ -19,7 +19,8 @@ class Targetipsc():
         self.transform_matrix = self.get_transform()
 
         #Loading image
-        self.t_image = cv2.imread("ipsctarget1.jpg")
+        self.t_image_init = cv2.imread("ipsctarget1.jpg")
+        self.t_image = self.t_image_init.copy
 
         #setting target id
         self.target_id = t_id
@@ -83,7 +84,14 @@ class Targetipsc():
     def update_target(self, shot_coordinates):
         print("Updating target")
 
-        dst = cv2.warpPerspective(shot_coordinates,self.transform_matrix,(300,300))
+        #dst = cv2.warpPerspective(shot_coordinates,self.transform_matrix,(300,300))
+        relative_shot = cv2.transform(shot_coordinates, self.transform_matrix)
 
-        print("Result of target update is ")
-        print(dst)
+        cv2.circle(self.t_image, relative_shot, 3, (0,0,255), -1)
+
+
+    '''
+    Return image of the target
+    '''
+    def get_target_image(self):
+        return self.t_image
