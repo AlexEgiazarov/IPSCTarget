@@ -18,6 +18,8 @@ class Range():
         self.red_threshold = 230
         self.target_points = []
         self.targets = []
+        self.target_image_set = []
+        self.target_show = []
         self.wait = False
 
     '''
@@ -88,9 +90,17 @@ class Range():
             #convert crop points
             self.target_points = np.asarray(np.divide(self.target_points,[self.re_scale_factor_x,self.re_scale_factor_y]),int)
 
+            #create target 
             target = Targetipsc(self.target_points, len(self.targets))
 
+            #append target to the list
             self.targets.append(target)
+
+            #TODO #NEED TO CHANGE THIS 
+            self.target_image_set.append(cv2.imread("ipsctarget1.jpg"))
+
+            #reset target points
+            self.target_points = []
 
             #reset all cv2 windows
             cv2.destroyAllWindows()
@@ -113,8 +123,11 @@ class Range():
                     if len(c)>=4:
                         # compute the center of the contour
                         M = cv2.moments(c)
-                        cX = M["m10"] / M["m00"]
-                        cY = M["m01"] / M["m00"]
+                        try:
+                            cX = M["m10"] / M["m00"]
+                            cY = M["m01"] / M["m00"]
+                        except ZeroDivisionError:
+                            return None
 
                         return (cX, cY)
             else:
@@ -159,6 +172,7 @@ class Range():
                 #destroy calibration window
                 cv2.destroyWindow("Calibration")
 
+
     '''
     Main run function
     '''
@@ -177,8 +191,14 @@ class Range():
             #read frame
             ret, frame = cap.read()
 
-            #show frame
-            cv2.imshow('frame', frame)
+
+
+            if len(self.target_image_set)>0:
+                #show frame
+                for idx, t_i in enumerate(self.target_image_set):
+                    cv2.imshow("Target - {}".format(idx), t_i)
+            else:
+                cv2.imshow('frame', frame)
 
             #if no targets made
             if len(self.targets) == 0:
@@ -212,11 +232,14 @@ class Range():
                         hit_status = False
 
                         #for each target in list
-                        for t in self.targets:
+                        for idx, t in enumerate(self.targets):
                             
                             #check if shot is inside the target
                             if t.inside_target(shot_status):
                                 print("Target [{}] HIT".format(t.get_id()))
+                                #self.target_image_set[idx] = t.get_target_image()
+                                relative_shot = t.update_target(shot_status)
+                                cv2.circle(self.target_image_set[idx], relative_shot, 3, (0,0,255), -1)
                                 hit_status = True
 
                         #check if hits were registered

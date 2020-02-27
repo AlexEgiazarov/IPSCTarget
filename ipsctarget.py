@@ -11,19 +11,36 @@ class Targetipsc():
         self.t_points = target_points
 
         #create rectangle based on chosen points
-        self.target_rect = cv2.boundingRect(target_points)
+        self.target_rect = self.get_t_rectangle(target_points)
+
+
+        print("Target rectangle")
+        print(self.target_rect)
 
         #other variables
-        self.t_trans_points = [[205,30], [385,30], [570,260], [570, 490], [390,722], [250,722], [22,490], [22,260]]
+        #self.t_trans_points = [[205,30], [385,30], [570,260], [570, 490], [390,722], [250,722], [22,490], [22,260]]
+        self.t_trans_points = [[0,0], [565,0], [565,713], [0, 713]]
         self.t_mask = []
         self.transform_matrix = self.get_transform()
 
         #Loading image
         self.t_image_init = cv2.imread("ipsctarget1.jpg")
-        self.t_image = self.t_image_init.copy
+        self.t_image = cv2.imread("ipsctarget1.jpg")
 
         #setting target id
         self.target_id = t_id
+
+    '''
+    Make target rectangle
+    '''
+    def get_t_rectangle(self, t_points):
+        (x,y,w,h) = cv2.boundingRect(t_points)
+        t1 = [x,y]
+        t2 = [x+w,y]
+        t3 = [x+w,y+h]
+        t4 = [x,y+h]
+        rect = [t1,t2,t3,t4]
+        return rect
 
     #return id
     def get_id(self):
@@ -52,15 +69,18 @@ class Targetipsc():
     def get_transform(self):
 
         #convert points
-        pts1 = np.float32(self.t_points)
+        #pts1 = np.float32(self.t_points)
+        pts1 = np.float32(self.target_rect)
         print(pts1)
         pts2 = np.float32(self.t_trans_points)
         print(pts2)
 
         #geting transform
         #self.transform_matrix = cv2.getPerspectiveTransform(pts1,pts2)
+        M = cv2.getPerspectiveTransform(pts1, pts2)
+        #M = cv2.getAffineTransform(pts1, pts2)
 
-        return cv2.getPerspectiveTransform(pts1, pts2)
+        return M
 
     '''
     Make target mask
@@ -84,10 +104,17 @@ class Targetipsc():
     def update_target(self, shot_coordinates):
         print("Updating target")
 
-        #dst = cv2.warpPerspective(shot_coordinates,self.transform_matrix,(300,300))
-        relative_shot = cv2.transform(shot_coordinates, self.transform_matrix)
+        #shot_coordinates = np.float32(shot_coordinates)
+        shot_coordinates = (shot_coordinates[0], shot_coordinates[1], 1)
 
-        cv2.circle(self.t_image, relative_shot, 3, (0,0,255), -1)
+        #calculate shot placement on target
+        relative_shot = np.array(self.transform_matrix) @ np.array(shot_coordinates)
+
+        #reassemble shot placement
+        relative_shot = (int(relative_shot[0]), int(relative_shot[1]))
+        
+        #cv2.circle(self.t_image, relative_shot, 3, (0,0,255), -1)
+        return relative_shot
 
 
     '''
