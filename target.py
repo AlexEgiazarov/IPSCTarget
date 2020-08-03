@@ -67,7 +67,8 @@ class Target():
             frame (ndarray): captured frame represented as a numpy array
         """
 
-        print("Please, mark the target")
+        print("Please, mark the corners of the target")
+        print("Press C when done to confirm")
 
         #copy image from the frame
         image = frame.copy()
@@ -289,4 +290,3 @@ class Target():
 if __name__ == "__main__":
     t1 = Target()
     t1.run()
-    
