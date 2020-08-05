@@ -9,7 +9,8 @@ Cold temp light, as the algorithm detects red color.
 ## How to use
 Start the 
 ''target.py''
-script and mark the corners of the target.
+script and mark the corners of the target (total of 8 corners) by clicking on the presented image.
+Press C to cancel the marked corners and start over.
 Script will detect if the shots are placed inside or outside the target
 
 ## Planned work
