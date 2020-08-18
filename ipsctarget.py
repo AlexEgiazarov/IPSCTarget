@@ -2,10 +2,14 @@ import numpy as np
 import cv2
 
 class Targetipsc():
-    '''
-    init function
-    '''
+
     def __init__(self, target_points, t_id):
+        """Init function
+
+        Args:
+            target_points (list): list of points representing corners of the target
+            t_id (int): target id
+        """
 
         #assign target points
         self.t_points = target_points
@@ -13,13 +17,12 @@ class Targetipsc():
         #create rectangle based on chosen points
         self.target_rect = self.get_t_rectangle(target_points)
 
-
         print("Target rectangle")
         print(self.target_rect)
 
         #other variables
         #self.t_trans_points = [[205,30], [385,30], [570,260], [570, 490], [390,722], [250,722], [22,490], [22,260]]
-        self.t_trans_points = [[0,0], [565,0], [565,713], [0, 713]]
+        self.t_trans_points = [[0, 0], [565, 0], [565, 713], [0, 713]]
         self.t_mask = []
         self.transform_matrix = self.get_transform()
 
@@ -30,20 +33,29 @@ class Targetipsc():
         #setting target id
         self.target_id = t_id
 
-    '''
-    Make target rectangle
-    '''
     def get_t_rectangle(self, t_points):
-        (x,y,w,h) = cv2.boundingRect(t_points)
-        t1 = [x,y]
-        t2 = [x+w,y]
-        t3 = [x+w,y+h]
-        t4 = [x,y+h]
-        rect = [t1,t2,t3,t4]
+        """Function to create a target rectangle
+
+        Args:
+            t_points (list): list of points
+
+        Returns:
+            list: least bounding rectangle of the target
+        """
+        (x, y, w, h) = cv2.boundingRect(t_points)
+        t1 = [x, y]
+        t2 = [x+w, y]
+        t3 = [x+w, y+h]
+        t4 = [x, y+h]
+        rect = [t1, t2, t3, t4]
         return rect
 
-    #return id
     def get_id(self):
+        """Function for return of target ID
+
+        Returns:
+            int: target id
+        """
         return self.target_id
 
     '''
@@ -51,6 +63,14 @@ class Targetipsc():
     Function that checks if the shot is inside the target
     '''
     def inside_target(self, shot_coordinates):
+        """Function for checking if the shot is inside the given target
+
+        Args:
+            shot_coordinates (tuple): (xY)
+
+        Returns:
+            [type]: [description]
+        """
 
         #checking distance
         dist = cv2.pointPolygonTest(self.t_points,(shot_coordinates[0], shot_coordinates[1]),True)
